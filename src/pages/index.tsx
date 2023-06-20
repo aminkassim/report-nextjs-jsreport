@@ -2,30 +2,42 @@ import Head from 'next/head'
 import Image from 'next/image'
 import { Inter } from 'next/font/google'
 import styles from '@/styles/Home.module.css'
-
-import jsreport from '@jsreport/browser-client';
+import { useCallback, useState } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export default function Home() {
+  const [reportState, setReportState] = useState({ loading: false, error: null })
 
-  async function btnGenerate() {
+  const handleBtnGenerate = useCallback(
+    async function btnGenerate () {
+      // Dynamically load jsreport browser sdk because it only works on client side
+      const jsreport = (await import('@jsreport/browser-client')).default
 
-    // uncomment this code
-    jsreport.serverUrl = "http://localhost:5488"
-    jsreport.headers['Authorization'] = "Basic " + btoa("admin:12345")
+      // uncomment this code
+      jsreport.serverUrl = "http://localhost:5488"
+      jsreport.headers['Authorization'] = "Basic " + btoa("admin:12345")
 
-    const report = await jsreport.render({
-      template: {
-        content: 'Hello from {{message}}',
-        engine: 'handlebars',
-        recipe: 'chrome-pdf'
-      },
-    });
+      try {
+        setReportState((prev) => ({ ...prev, loading: true, error: null }))
 
-    report.openInWindow({ title: "My Quotation" })
-    
-  }
+        const report = await jsreport.render({
+          template: {
+            content: 'Hello from {{message}}',
+            engine: 'handlebars',
+            recipe: 'chrome-pdf'
+          },
+        });
+
+        report.openInWindow({ title: "My Quotation" })
+      } catch (error) {
+        setReportState((prev) => ({ ...prev, error }))
+      } finally {
+        setReportState((prev) => ({ ...prev, loading: false }))
+      }
+    },
+    []
+  )
 
   return (
     <>
@@ -36,11 +48,15 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main>
-       
-
-        <button onClick={btnGenerate}>Generate Report</button>
-
-       
+        <button
+          disabled={reportState.loading}
+          onClick={handleBtnGenerate}
+        >
+          {reportState.loading ? 'Loading...' : 'Generate Report'}
+        </button>
+        {reportState.error && (
+          <div style={{ color: 'red' }}>{reportState.error.message}</div>
+        )}
       </main>
     </>
   )
